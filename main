@@ -1,0 +1,597 @@
+clc
+clear all
+close all
+% GPS C/A code parameters
+prn = [1, 2, 3, 37];  
+code_length = 1023;  
+
+MATLAB Source code for figure 7
+gps_signals = zeros(length(prn)-1, code_length);
+for k = 1:length(prn)-1
+    G1 = ones(1, 13);
+    G2 = ones(1, 13);
+    code = zeros(1, code_length);
+    for i = 1:code_length
+        g2_output = G2(10);
+        code(i) = mod(G1(10) + g2_output, 2);
+        feedback = mod(G1(3) + G1(10), 2);
+        G1 = circshift(G1, [0 1]);
+        G1(1) = feedback;
+        feedback = mod(G2(2) + G2(3) + G2(6) + G2(8) + G2(9) + G2(10), 2);
+        G2 = circshift(G2, [0 1]);
+        G2(1) = feedback;
+    end
+    gps_signals(k, :) = 1 - 2*code;
+end
+G1 = ones(1, 13);
+G2 = ones(1, 13);
+code = zeros(1, code_length);
+for i = 1:code_length
+    g2_output = G2(10);
+    code(i) = mod(G1(10) + g2_output, 2);
+    feedback = mod(G1(3) + G1(10), 2);
+    G1 = circshift(G1, [0 1]);
+    G1(1) = feedback;
+    feedback = mod(G2(2) + G2(3) + G2(6) + G2(8) + G2(9) + G2(10), 2);
+    G2 = circshift(G2, [0 1]);
+    G2(1) = feedback;
+end
+p = 2*bitxor(code_1, code_2);
+spoofer_signal=10*circshift(p, [0 50]);
+all_signals = [gps_signals; spoofer_signal];
+p1 = all_signals(1, :);  % Real GPS L1 C/A signal 1
+p2 = all_signals(2, :);  % Real GPS L1 C/A signal 2
+p3 = all_signals(3, :);  % Real GPS L1 C/A signal 3
+ rs = spoofer_signal;  % Spoofer signal
+Np = length(p1);
+Nr = length(rs);
+% Add delays for the GPS signals
+delay_p1 = 10;
+delay_p2 = 40;
+delay_p3 = 30;
+p1_delayed = [p1(delay_p1+1:end), p1(1:delay_p1)];
+p2_delayed = [p2(delay_p2+1:end), p2(1:delay_p2)];
+p3_delayed = [p3(delay_p3+1:end), p3(1:delay_p3)];
+ % Calculate the sum for run as r(n) = rs(n) + p(n) + noise(n)
+SNRdB = 0;  % Signal-to-Noise Ratio
+SNR = 10^(SNRdB/10);
+sigma_n = sqrt(1/SNR);  % Standard deviation of the noise
+ % Generate additive white Gaussian noise
+noise = sigma_n * randn(1, Np);
+ 
+% Generate received signal
+r = rs + p1_delayed + p2_delayed + p3_delayed + noise;
+ 
+C1 = zeros(1, Nr);
+C2 = zeros(1, Nr);
+C3 = zeros(1, Nr);
+for m = 1:Nr
+    for n = 1:Np
+       C1(m) = C1(m) + p1(mod(n - m, Np) + 1) * r(n);
+      C2(m) = C2(m) + p2(mod(n - m, Np) + 1) * r(n);
+        C3(m) = C3(m) + p3(mod(n - m, Np) + 1) * r(n);
+    end
+end
+ 
+% Specify colors for the input and output signals
+color_p = [0 0 1];
+color_R = [1 0 0];
+ 
+% Set the center index for plotting
+center_index_p = 0:Np-1;
+center_index_rs = 0:Nr-1;
+% Adjust figure size
+figure('Position', [100 100 800 600]);
+ 
+subplot(4, 1, 1);
+stem(center_index_p, p1_delayed, 'Color', color_p, 'LineWidth', 2, 'MarkerSize', 4);
+title('p1(n) with Delay');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -1.5 1.5])
+grid on
+ 
+subplot(4, 1, 2);
+stem(center_index_p, p2_delayed, 'Color', [0.85 0.33 0.1], 'LineWidth', 2, 'MarkerSize', 4);
+title('p2(n) with Delay');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -1.5 1.5])
+grid on
+ 
+subplot(4, 1, 3);
+stem(center_index_p, p3_delayed, 'Color', [0.93 0.69 0.13], 'LineWidth', 2, 'MarkerSize', 4);
+title('p3(n) with Delay');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -1.5 1.5])
+grid on
+ 
+subplot(4, 1, 4);
+stem(center_index_rs, rs, 'Color', [0.49 0.18 0.56], 'LineWidth', 2, 'MarkerSize', 4);
+title('rs(n)');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Nr-1 -15 15])
+grid on
+
+MATLAB Source Codes for Figure 8 
+%subplot(5, 1, 5);
+figure;
+stem(center_index_p, r, 'Color', color_p, 'LineWidth', 2, 'MarkerSize', 4);
+title('r(n)');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -15 15])
+grid on
+MATLAB Source Codes for Figure 9
+% Adjust figure size
+figure('Position', [100 100 800 400]);
+subplot(3, 1, 1);
+stem(0:Np-1, C1, 'Color', color_R, 'LineWidth', 2, 'MarkerSize', 4);
+title('Cyclic Cross-Correlation C1');
+xlabel('m');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 min(C1)-1 max(C1)+1])
+grid on
+subplot(3, 1, 2);
+stem(0:Np-1, C2, 'Color', color_R, 'LineWidth', 2, 'MarkerSize', 4);
+title('Cyclic Cross-Correlation C2');
+xlabel('m');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 min(C2)-1 max(C2)+1])
+grid on
+subplot(3, 1, 3);
+stem(0:Np-1, C3, 'Color', color_R, 'LineWidth', 2, 'MarkerSize', 4);
+title('Cyclic Cross-Correlation C3');
+xlabel('m');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 min(C3)-1 max(C3)+1])
+grid on
+ 
+% Find the index of the peak in R(m)
+[~, peak_index1] = max(C1);
+[~, peak_index2] = max(C2);
+[~, peak_index3] = max(C3);
+ 
+% Plot the peak value
+hold on
+stem(peak_index1-1, C1(peak_index1), 'Marker', 'o', 'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'red', 'LineWidth', 2, 'MarkerSize', 8);
+stem(peak_index2-1, C2(peak_index2), 'Marker', 'o', 'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'red', 'LineWidth', 2, 'MarkerSize', 8);
+stem(peak_index3-1, C3(peak_index3), 'Marker', 'o', 'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'red', 'LineWidth', 2, 'MarkerSize', 8);
+hold off
+ 
+% Display the peak index and value
+fprintf('Peak index: %d\n', peak_index1-1);
+fprintf('Peak value: %f\n', C1(peak_index1));
+fprintf('Peak index: %d\n', peak_index2-1);
+fprintf('Peak value: %f\n', C2(peak_index2));
+fprintf('Peak index: %d\n', peak_index3-1);
+fprintf('Peak value: %f\n', C3(peak_index3));
+ 
+As = C1(peak_index1) / 1023;  % Calculate As
+main_signal = circshift(1 - 2*code, [0 50]); %main pn sequence =1 - 2*code
+rs_modified = As * main_signal;  % Compute r^s(n)
+ % Generate filtered signal
+filtered_signal = r - rs_modified;
+MATLAB Source Codes for Figure 10 
+% Plot the filtered signal
+figure('Position', [100 100 800 400]);
+stem(center_index_p, filtered_signal, 'Color', color_p, 'LineWidth', 2, 'MarkerSize', 4);
+title('Filtered Signal');
+xlabel('n');
+ylabel('Amplitude');
+set(gca, 'FontSize', 12);
+axis([0 Np-1 -15 15]);
+grid on
+ 
+% Calculate the cyclic cross-correlation between filtered signal and main GPS signals
+C_filtered_p = zeros(1, Nr);
+ for m = 1:Nr
+    for n = 1:Np
+        C_filtered_p(m) = C_filtered_p(m) + filtered_signal(mod(n - m, Np) + 1) * p1(n);
+    end
+end
+ MATLAB Source Codes for Figure 11 
+% Adjust figure size
+figure('Position', [100 100 800 400]);
+stem(0:Np-1, C_filtered_p, 'Color', color_R, 'LineWidth', 2, 'MarkerSize', 4);
+title('Cyclic Cross-Correlation (Filtered Signal and p)');
+xlabel('m');
+ylabel('Amplitude');
+set(gca, 'FontSize', 12);
+axis([0 Np-1 min(C_filtered_p)-1 max(C_filtered_p)+1]);
+grid on
+% Find the index of the peak in C_filtered_p1, C_filtered_p2, and C_filtered_p3
+[~, peak_index_filtered_p] = max(C_filtered_p);
+ % Display the peak index and value
+fprintf('Peak index (Filtered Signal and p1): %d\n', peak_index_filtered_p-1);
+fprintf('Peak value (Filtered Signal and p1): %f\n', C_filtered_p(peak_index_filtered_p));
+ % Estimate the GPS delays
+delay_p1f = peak_index_filtered_p - 1;
+% Display the GPS delays
+fprintf('\nEstimated GPS Delays:\n');
+fprintf('Delay p1: %d\n', delay_p1f);
+
+APPENDIX B
+clc
+clear all
+close all
+ 
+% GPS C/A code parameters
+prn = [1, 2, 3, 4]; % PRN numbers (1-37) for GPS signals and spoofer signal
+code_length = 1023; % Length of C/A code
+ 
+% Generate the C/A codes for GPS signals
+gps_signals = zeros(code_length);
+ 
+% Initialize G1 shift register with N bits (N = number of stages)
+N = 10; % For example, using 10 bits for G1
+G1 = ones(1, N);
+for k = 1:length(prn)
+    % Use G1 to generate the C/A code instead of G2
+    code = zeros(1, code_length);
+    for i = 1:code_length
+        code(i) = mod(G1(10) + G1(3), 2); % Use G1(10) and G1(3) for the C/A code generation
+        feedback = mod(G1(3) + G1(10), 2);
+        G1 = circshift(G1, [0 1]);
+        G1(1) = feedback;
+    end
+    
+    gps_signals(k, :) = 1 - 2*code;
+end
+MATLAB Source Codes for Figure 12
+all_signals = gps_signals;
+% Defining the given variables
+p1 = all_signals(1, :); % Real GPS L1 C/A signal 1
+p2 = all_signals(2, :); % Real GPS L1 C/A signal 2
+p3 = all_signals(3, :); % Real GPS L1 C/A signal 3
+spoofer_signal = all_signals(4, :);
+Np = length(p1);
+delay_p1 = 10;
+delay_p2 = 30;
+delay_p3 = 40;
+delay_s = 50;
+p1_delayed = [p1(delay_p1+1:end), p1(1:delay_p1)];
+p2_delayed = [p2(delay_p2+1:end), p2(1:delay_p2)];
+p3_delayed = [p3(delay_p3+1:end), p3(1:delay_p3)];
+p = [spoofer_signal(delay_s+1:end),spoofer_signal(1:delay_s)];
+A=10;
+s_delayed = A*p;
+rs = s_delayed;
+Nr = length(rs);
+SNRdB = 10;
+ 
+SNR = 10^(SNRdB/10);
+sigma_n = sqrt(1/SNR); % Standard deviation of the noise
+% Generate additive white Gaussian noise
+noise = sigma_n * randn(1, Np);
+% Generate received signal
+r = s_delayed + p1_delayed + p2_delayed + p3_delayed + noise;
+% Specify colors for the input and output signals
+color_p = [0 0 1];
+color_R = [1 0 0];
+% Set the center index for plotting
+center_index_p = 0:Np-1;
+center_index_rs = 0:Nr-1;
+% Adjust figure size
+figure('Position', [100 100 800 600]);
+subplot(5, 1, 1);
+stem(center_index_p, p1_delayed, 'Color', color_p, 'LineWidth', 2, 'MarkerSize', 4);
+title('p1(n) with Delay');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -1.5 1.5])
+grid on
+subplot(5, 1, 2);
+stem(center_index_p, p2_delayed, 'Color', [0.85 0.33 0.1], 'LineWidth', 2, 'MarkerSize', 4);
+title('p2(n) with Delay');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -1.5 1.5])
+grid on
+subplot(5, 1, 3);
+stem(center_index_p, p3_delayed, 'Color', [0.93 0.69 0.13], 'LineWidth', 2, 'MarkerSize',4);
+title('p3(n) with Delay');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -1.5 1.5])
+grid on
+subplot(5, 1, 4);
+stem(center_index_rs, rs, 'Color', [0.49 0.18 0.56], 'LineWidth', 2, 'MarkerSize', 4);
+title('rs(n)');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Nr-1 -15 15])
+grid on
+subplot(5, 1, 5);
+MATLAB Source Codes for Figure 13
+stem(center_index_p, r, 'Color', color_p, 'LineWidth', 2, 'MarkerSize', 4);
+title('r(n)');
+xlabel('n');
+ylabel('Amplitude');
+set(gca,'FontSize',12)
+axis([0 Np-1 -15 15])
+grid on
+% Calculate the cyclic cross-correlation 
+MATLAB Source Codes for Figure 14
+cross_corr_result1 = zeros(1, code_length);
+for m = 1:code_length
+     for n = 1:code_length
+        cross_corr_result1(m) = cross_corr_result1(m) + r(n) * conj(gps_signals(1, mod(n + m - 2, code_length) + 1));
+    end
+end
+% Plot the cyclic cross-correlation result
+figure;
+stem(0:code_length-1, abs(cross_corr_result1), 'LineWidth', 2, 'MarkerSize', 4);
+title('Cyclic Cross-Correlation Result of received signal and reference signal ');
+xlabel('m');
+ylabel('Amplitude');
+grid on;
+% Find the highest peak value and its index
+[max_peak_value, max_peak_index] = max(abs(cross_corr_result1));
+% Display the highest peak value and its index
+disp(['Highest Peak Value: ', num2str(max_peak_value)]);
+disp(['Index of Highest Peak: ', num2str(max_peak_index - 1)]); 
+As = max_peak_value / 1023;  % Calculate As
+rs_modified = As * p; %(p is the pn sequence)
+% Generate filtered signal
+MATLAB Source Codes for Figure 15
+filtered_signal = r - rs_modified(1:Np);
+% Display the GPS delays
+fprintf('\nAs:\n');
+fprintf('Spoofer estimate amplitude: %d\n', As);
+% Plot the filtered signal
+figure('Position', [100 100 800 400]);
+stem(center_index_p, filtered_signal, 'Color', color_p, 'LineWidth', 2, 'MarkerSize', 4);
+title('Filtered Signal');
+xlabel('n');
+ylabel('Amplitude');
+set(gca, 'FontSize', 12);
+axis([0 Np-1 -15 15]);
+grid on
+% Calculate the cyclic cross-correlation 
+MATLAB Source Codes for Figure 16
+cross_corr_result2 = zeros(1, code_length);
+ 
+for m = 1:code_length
+    for n = 1:code_length
+        cross_corr_result2(m) = cross_corr_result2(m) + filtered_signal(n) * conj(gps_signals(1, mod(n + m - 2, code_length) + 1));
+    end
+end
+% Plot the cyclic cross-correlation result
+figure;
+stem(0:code_length-1, abs(cross_corr_result2), 'LineWidth', 2, 'MarkerSize', 4);
+title('Cyclic Cross-Correlation Result of filtered signal and reference signal');
+xlabel('m');
+ylabel('Amplitude');
+grid on;
+[max_peak_value2, max_peak_index2] = max(abs(cross_corr_result2));
+% Display the highest peak value and its index
+disp(['Highest Peak Value: ', num2str(max_peak_value2)]);
+disp(['Index of Highest Peak: ', num2str(max_peak_index2 - 1)]);
+ 
+% Display the GPS delays
+fprintf('\nEstimated GPS Delay:\n');
+fprintf('Delay p1: %d\n', max_peak_index2-1);
+ 
+APPENDIX C
+clc
+clear all
+close all
+ % GPS C/A code parameters
+prn = [1, 2, 3, 4]; % PRN numbers (1-37) for GPS signals and spoofer signal
+code_length = 1023; % Length of C/A code
+ % Generate the C/A codes for GPS signals
+gps_signals = zeros(code_length);
+N = 10; 
+G1 = ones(1, N);
+for k = 1:length(prn)
+    code = zeros(1, code_length);
+    for i = 1:code_length
+        code(i) = mod(G1(10) + G1(3), 2); 
+        feedback = mod(G1(3) + G1(10), 2);
+        G1 = circshift(G1, [0 1]);
+        G1(1) = feedback;
+    end
+    gps_signals(k, :) = 1 - 2*code;
+end
+all_signals = gps_signals;
+ 
+% SNR values to be tested
+SNRdB_values = [-20, -10]; % Modified SNR values including -20 dB and -10 dB
+ 
+ 
+As = 0.5:0.1:2; 
+num_As = length(As);
+probability_of_success = zeros(length(SNRdB_values), num_As);
+ 
+% Number of trials
+N_trial = 100;
+ for snr_idx = 1:length(SNRdB_values)
+    SNRdB = SNRdB_values(snr_idx);
+    
+    for a_idx = 1:num_As
+        A = As(a_idx);
+        failure_count = 0;
+ 
+        % Loop for N_trial times
+        for trial = 1:N_trial
+            % Defining the given variables
+            p1 = all_signals(1, :); % Real GPS L1 C/A signal 1
+            p2 = all_signals(2, :); % Real GPS L1 C/A signal 2
+            p3 = all_signals(3, :); % Real GPS L1 C/A signal 3
+            spoofer_signal = all_signals(4, :);
+            Np = length(p1);
+            delay_p1 = 10;
+            delay_p2 = 30;
+            delay_p3 = 40;
+            delay_s = 50;
+            p1_delayed = [p1(delay_p1+1:end), p1(1:delay_p1)];
+            p2_delayed = [p2(delay_p2+1:end), p2(1:delay_p2)];
+            p3_delayed = [p3(delay_p3+1:end), p3(1:delay_p3)];
+            p = [spoofer_signal(delay_s+1:end), spoofer_signal(1:delay_s)];
+            s_delayed = A * p;
+            rs = s_delayed;
+            Nr = length(rs);
+ 
+            % Generate additive white Gaussian noise
+            sigma_n = sqrt(1/(10^(SNRdB/10))); 
+            noise = sigma_n * randn(1, Np);
+ 
+            % Generate received signal
+            r = s_delayed + p1_delayed + p2_delayed + p3_delayed + noise;
+ 
+            % Calculate the cyclic cross-correlation 
+            cross_corr_result1 = zeros(1, code_length);
+            for m = 1:code_length
+                for k = 1:code_length
+                    cross_corr_result1(m) = cross_corr_result1(m) + r(k) * conj(gps_signals(1, mod(k + m - 1, code_length) + 1));
+                end
+            end
+ 
+            % Find the highest peak value and its index
+            [max_peak_value, peak_position] = max(abs(cross_corr_result1));
+ 
+            % Check if peak position is equal to 50
+            if peak_position ~= 50
+                failure_count = failure_count + 1;
+            end
+        end
+      
+        probability_of_success(snr_idx, a_idx) = 1 - failure_count / N_trial;
+    end
+end
+MATLAB Source Codes for Figure 17 
+figure;
+hold on;
+for snr_idx = 1:length(SNRdB_values)
+    num_points = sum(~isnan(As_values(snr_idx, :)));
+    plot(repmat(SNRdB_values(snr_idx), 1, num_points), As_values(snr_idx, ~isnan(As_values(snr_idx, :))), 'o', 'LineWidth', 2, 'MarkerSize', 6);
+end
+plot(SNRdB_values, average_As_values, 'k-', 'LineWidth', 2);
+hold off;
+ MATLAB Source Codes for Figure 18 
+figure;
+plot(As, probability_of_success(1, :), 'o-', 'LineWidth', 2, 'MarkerSize', 6);
+title('Probability of Success vs. A at SNRdB = -20 dB');
+xlabel('A');
+ylabel('Probability of Success');
+grid on;
+set(gca, 'FontSize', 12);
+ 
+MATLAB Source Codes for Figure 19 
+figure;
+plot(As, probability_of_success(2, :), 'o-', 'LineWidth', 2, 'MarkerSize', 6);
+title('Probability of Success vs. A at SNRdB = -10 dB');
+xlabel('A');
+ylabel('Probability of Success');
+grid on;
+set(gca, 'FontSize', 12);
+
+
+APPENDIX D
+clc;
+clear all;
+close all;
+hasSpoof = true;  % Set hasSpoof to true when there is a spoofer
+% Define the input values
+p1 = [34.052235, -118.243683, 0]; % Washington D.C., USA
+p2 = [38.889931, -77.009003, 0]; % New York City, USA
+p3 = [40.712776, -74.005974, 0]; % Los Angeles, USA
+d1 = 12000; % distance from Washington D.C.
+d2 = 15000; % distance from New York City
+d3 = 25000; % Distance from Tokyo in meters
+c = 299792458; % Speed of light
+% Call the trilateration function
+delay1 = d1 / c;
+delay2 = d2 / c;
+delay3 = d3 / c;
+MATLAB Source Codes for Figure 20 
+% Call the trilateration function
+[x, y, z] = trilateration(p1, p2, p3, delay1, delay2, delay3, c, hasSpoof);
+% Display the estimated coordinates
+fprintf('Estimated Coordinates with spoofer:\n');
+fprintf('Latitude = %.6f\n', x);
+fprintf('Longitude = %.6f\n', y);
+fprintf('Altitude = %.2f meters\n', z);
+hasSpoof = false;  % Set hasSpoof to false when there is no spoofer
+
+MATLAB Source Codes for Figure 21 
+% Call the trilateration function
+[x, y, z] = trilateration(p1, p2, p3, delay1, delay2, delay3, c, hasSpoof);
+fprintf('Estimated Coordinates without spoofer:\n');
+fprintf('Latitude = %.6f\n', x);
+fprintf('Longitude = %.6f\n', y);
+fprintf('Altitude = %.2f meters\n', z);
+MATLAB Source Codes for Figure 22
+[x, y, z] = trilateration(p1, p2, p3, delay1, delay2, delay3, c);
+fprintf(Estimated coordinate without noise and AF relay spoofing signal:\n');
+fprintf('Latitude = %.6f\n', x);
+fprintf('Longitude = %.6f\n', y);
+fprintf('Altitude = %.2f meters\n', z);
+
+function [lat, lon, alt] = trilateration(p1, p2, p3, delay1, delay2, delay3, c, hasSpoof)
+    % Trilateration method to find (lat, lon, alt) coordinates
+    % GPS coordinates of the three points
+    lat1 = p1(1);
+    lon1 = p1(2);
+    alt1 = p1(3);
+    
+    lat2 = p2(1);
+    lon2 = p2(2);
+    alt2 = p2(3);
+    lat3 = p3(1);
+    lon3 = p3(2);
+    alt3 = p3(3);
+     % Calculate intermediate values
+    A = 2 * (lon2 - lon1);
+    B = 2 * (lat2 - lat1);
+    C = 2 * (alt2 - alt1);
+    D = 2 * (lon3 - lon1);
+    E = 2 * (lat3 - lat1);
+    F = 2 * (alt3 - alt1);
+    if hasSpoof
+        % Introduce random deviations for spoofed coordinates
+        deviation = 0.01;  % Deviation magnitude for spoofed coordinates
+        
+        lat1 = lat1 + (rand() * 2 - 1) * deviation;
+        lon1 = lon1 + (rand() * 2 - 1) * deviation;
+        alt1 = alt1 + (rand() * 2 - 1) * deviation;
+        
+        lat2 = lat2 + (rand() * 2 - 1) * deviation;
+        lon2 = lon2 + (rand() * 2 - 1) * deviation;
+        alt2 = alt2 + (rand() * 2 - 1) * deviation;
+        
+        lat3 = lat3 + (rand() * 2 - 1) * deviation;
+        lon3 = lon3 + (rand() * 2 - 1) * deviation;
+        alt3 = alt3 + (rand() * 2 - 1) * deviation;
+    end
+    
+    G = delay1^2 - delay2^2 - lon1^2 + lon2^2 - lat1^2 + lat2^2 - alt1^2 + alt2^2;
+    H = delay1^2 - delay3^2 - lon1^2 + lon3^2 - lat1^2 + lat3^2 - alt1^2 + alt3^2;
+    
+    % Solve the linear equations
+    M = [A, B, C; D, E, F; 1, 1, 1]; % Modified to include altitude
+    N = [G; H; lon1 + lat1 + alt1]; % Modified to include altitude
+    P = linsolve(M, N);
+    % Extract the coordinates
+    lon = P(1);
+    lat = P(2);
+    alt = P(3);
+    % Convert latitude and longitude to decimal degrees
+    lat = wrapTo180(rad2deg(lat));
+    lon = wrapTo180(rad2deg(lon));
+end
